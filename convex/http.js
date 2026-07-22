@@ -1,12 +1,13 @@
 import { httpRouter } from "convex/server";
 import { httpAction } from "./_generated/server";
 import { api } from "./_generated/api";
+import { embedTextSafe } from "./embed";
 
 const http = httpRouter();
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, X-Session, X-Agent, X-Note, X-Filename",
 };
 
@@ -14,7 +15,9 @@ const CORS = {
 // Two ways to send bytes:
 //   multipart:  curl -F file=@shot.png -F session=run-42 -F agent=claude .../upload
 //   raw body:   curl --data-binary @shot.png -H "X-Filename: shot.png" -H "X-Session: run-42" .../upload
-// Returns { id, url, viewer }.
+// The filename becomes the URL slug (/f/:name, /v/:name) — must be unique;
+// re-uploading an existing name returns 409 asking the caller to rename.
+// The note (if any) is embedded via HuggingFace for the vector map.
 const upload = httpAction(async (ctx, req) => {
   const site = new URL(req.url).origin;
   const ct = req.headers.get("content-type") || "";
@@ -40,33 +43,50 @@ const upload = httpAction(async (ctx, req) => {
     note = req.headers.get("x-note") || "";
   }
 
+  name = String(name);
+  note = String(note);
+
+  const embedding = await embedTextSafe(note);
+
   const storageId = await ctx.storage.store(blob);
-  const id = await ctx.runMutation(api.files.record, {
+  const result = await ctx.runMutation(api.files.record, {
     storageId,
-    name: String(name),
+    name,
     mime: blob.type || "application/octet-stream",
     size: blob.size,
     session: String(session),
     agent: String(agent),
-    note: String(note),
+    note,
+    ...(embedding ? { embedding } : {}),
   });
 
+  if (result.error === "duplicate_name") {
+    await ctx.storage.delete(storageId);
+    return json(
+      {
+        error: "duplicate_name",
+        message: `A file named "${name}" already exists. Rename your file and upload it again.`,
+      },
+      409
+    );
+  }
+
   return json({
-    id,
-    url: `${site}/f/${id}`,
-    viewer: `${site}/v/${id}`,
-    name: String(name),
+    id: result.id,
+    url: `${site}/f/${name}`,
+    viewer: `${site}/v/${name}`,
+    name,
     mime: blob.type || "application/octet-stream",
     size: blob.size,
     session: String(session),
-    note: String(note),
+    note,
   });
 });
 
-// GET /f/:id  -> serve the raw file bytes inline (so HTML/images render in-browser)
+// GET /f/:name  -> serve the raw file bytes inline (so HTML/images render in-browser)
 const serve = httpAction(async (ctx, req) => {
-  const id = new URL(req.url).pathname.split("/").pop();
-  const row = await ctx.runQuery(api.files.get, { id });
+  const name = decodeURIComponent(new URL(req.url).pathname.split("/").pop());
+  const row = await ctx.runQuery(api.files.getByName, { name });
   if (!row || !row.url) return new Response("not found", { status: 404 });
   const res = await fetch(row.url);
   const headers = new Headers(res.headers);
@@ -76,10 +96,10 @@ const serve = httpAction(async (ctx, req) => {
   return new Response(res.body, { status: res.status, headers });
 });
 
-// PUT /f/:id  -> agent edit: replace a file's bytes in place, id/url unchanged.
-// Same body formats as POST /upload (multipart `file=` or raw body + X-Filename).
+// PUT /f/:name  -> agent edit: replace a file's bytes in place, name/url unchanged.
+// Same body formats as POST /upload (multipart `file=` or raw body).
 const replace = httpAction(async (ctx, req) => {
-  const id = new URL(req.url).pathname.split("/").pop();
+  const name = decodeURIComponent(new URL(req.url).pathname.split("/").pop());
   const ct = req.headers.get("content-type") || "";
 
   let blob;
@@ -92,30 +112,29 @@ const replace = httpAction(async (ctx, req) => {
     blob = await req.blob();
   }
 
-  const existing = await ctx.runQuery(api.files.get, { id });
+  const existing = await ctx.runQuery(api.files.getByName, { name });
   if (!existing) return json({ error: "not found" }, 404);
 
   const storageId = await ctx.storage.store(blob);
   await ctx.runMutation(api.files.replaceContent, {
-    id,
+    name,
     storageId,
     mime: blob.type || existing.mime,
     size: blob.size,
   });
 
   const site = new URL(req.url).origin;
-  return json({ id, url: `${site}/f/${id}`, viewer: `${site}/v/${id}` });
+  return json({ name, url: `${site}/f/${name}`, viewer: `${site}/v/${name}` });
 });
 
-// GET /meta/:id -> JSON metadata for a file (name, mime, size, session, note, urls).
-// Use this to fetch a file's info; use GET /f/:id for the raw bytes themselves.
+// GET /meta/:name -> JSON metadata for a file (name, mime, size, session, note, urls).
+// Use this to fetch a file's info; use GET /f/:name for the raw bytes themselves.
 const meta = httpAction(async (ctx, req) => {
-  const id = new URL(req.url).pathname.split("/").pop();
-  const row = await ctx.runQuery(api.files.get, { id });
+  const name = decodeURIComponent(new URL(req.url).pathname.split("/").pop());
+  const row = await ctx.runQuery(api.files.getByName, { name });
   if (!row) return json({ error: "not found" }, 404);
   const site = new URL(req.url).origin;
   return json({
-    id: row._id,
     name: row.name,
     mime: row.mime,
     size: row.size,
@@ -123,8 +142,8 @@ const meta = httpAction(async (ctx, req) => {
     agent: row.agent,
     note: row.note,
     createdAt: row._creationTime,
-    url: `${site}/f/${id}`,
-    viewer: `${site}/v/${id}`,
+    url: `${site}/f/${name}`,
+    viewer: `${site}/v/${name}`,
   });
 });
 
@@ -140,8 +159,14 @@ const grep = httpAction(async (ctx, req) => {
   const results = await ctx.runQuery(api.files.grep, { q, session, limit });
   const site = new URL(req.url).origin;
   return json({
-    results: results.map((r) => ({ ...r, viewer: `${site}/v/${r.id}` })),
+    results: results.map((r) => ({ ...r, viewer: `${site}/v/${r.name}` })),
   });
+});
+
+// GET /vectors -> every file with an embedding, for the vector map page.
+const vectors = httpAction(async (ctx, req) => {
+  const rows = await ctx.runQuery(api.files.listWithEmbeddings, {});
+  return json({ files: rows });
 });
 
 http.route({ path: "/upload", method: "POST", handler: upload });
@@ -156,6 +181,7 @@ http.route({
   method: "OPTIONS",
   handler: httpAction(async () => new Response(null, { status: 204, headers: CORS })),
 });
+http.route({ path: "/vectors", method: "GET", handler: vectors });
 http.route({ pathPrefix: "/f/", method: "GET", handler: serve });
 http.route({ pathPrefix: "/f/", method: "PUT", handler: replace });
 http.route({

@@ -5,7 +5,7 @@ export const SITE = (process.env.NEXT_PUBLIC_CONVEX_URL || "").replace(
   ".convex.site"
 );
 
-export const fileUrl = (id) => `${SITE}/f/${id}`;
+export const fileUrl = (name) => `${SITE}/f/${encodeURIComponent(name)}`;
 
 export function kind(mime = "") {
   if (mime.startsWith("image/")) return "image";

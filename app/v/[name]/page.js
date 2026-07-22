@@ -7,9 +7,10 @@ import Logo from "../../Logo";
 import { fileUrl, kind, humanSize } from "../../lib";
 
 export default function Viewer({ params }) {
-  const { id } = use(params);
-  const f = useQuery(api.files.get, { id });
-  const url = fileUrl(id);
+  const { name } = use(params);
+  const decodedName = decodeURIComponent(name);
+  const f = useQuery(api.files.getByName, { name: decodedName });
+  const url = fileUrl(decodedName);
 
   if (f === undefined)
     return (

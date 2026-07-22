@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as embed from "../embed.js";
 import type * as files from "../files.js";
 import type * as http from "../http.js";
 
@@ -18,6 +19,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  embed: typeof embed;
   files: typeof files;
   http: typeof http;
 }>;

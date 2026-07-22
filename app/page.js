@@ -37,6 +37,13 @@ export default function Home() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <a
+            href="/map"
+            className="px-4 py-2 rounded-full text-sm font-medium transition-colors"
+            style={{ border: "1px solid rgba(255,207,122,0.3)", color: "#ffcf7a" }}
+          >
+            Vector map
+          </a>
           {isSignedIn ? (
             <>
               <span className="text-xs" style={{ color: "#a8935e" }}>
@@ -103,7 +110,7 @@ export default function Home() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
           {files.map((f) => (
-            <Card key={f._id} f={f} />
+            <Card key={f.name} f={f} />
           ))}
         </div>
       )}
@@ -129,9 +136,9 @@ function Chip({ active, onClick, children }) {
 
 function Card({ f }) {
   const k = kind(f.mime);
-  const url = fileUrl(f._id);
+  const url = fileUrl(f.name);
   return (
-    <a href={`/v/${f._id}`} className="note rounded-lg overflow-hidden flex flex-col">
+    <a href={`/v/${encodeURIComponent(f.name)}`} className="note rounded-lg overflow-hidden flex flex-col">
       <div className="h-32 flex items-center justify-center overflow-hidden" style={{ background: "#fffbe0" }}>
         {k === "image" ? (
           <img src={url} alt={f.name} className="w-full h-full object-cover" />

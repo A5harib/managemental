@@ -1,10 +1,10 @@
-// GET/PUT /api/f/:id — website-domain alias for editing/fetching a single file.
-// GET returns the raw bytes; PUT replaces them in place (same id/url).
+// GET/PUT /api/f/:name — website-domain alias for editing/fetching a single file.
+// GET returns the raw bytes; PUT replaces them in place (same name/url).
 const SITE = process.env.NEXT_PUBLIC_CONVEX_URL.replace(".convex.cloud", ".convex.site");
 
 export async function GET(req, { params }) {
-  const { id } = await params;
-  const res = await fetch(`${SITE}/f/${id}`);
+  const { name } = await params;
+  const res = await fetch(`${SITE}/f/${encodeURIComponent(name)}`);
   if (!res.ok) return new Response(res.body, { status: res.status });
 
   // fetch() auto-decompresses the body but leaves content-encoding/length on
@@ -18,8 +18,8 @@ export async function GET(req, { params }) {
 }
 
 export async function PUT(req, { params }) {
-  const { id } = await params;
-  const res = await fetch(`${SITE}/f/${id}`, {
+  const { name } = await params;
+  const res = await fetch(`${SITE}/f/${encodeURIComponent(name)}`, {
     method: "PUT",
     headers: req.headers,
     body: req.body,

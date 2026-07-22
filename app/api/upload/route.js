@@ -4,6 +4,8 @@ import { auth } from "@clerk/nextjs/server";
 // Forwards the raw request body+headers to Convex, rewrites returned URLs to
 // point back at this site's viewer. If the uploader is signed in (Clerk),
 // the file is also pushed to Jarvis so it shows up on their workflows page.
+// A 409 duplicate_name means the filename is already taken — the caller
+// should rename and re-upload; that response passes straight through.
 const SITE = process.env.NEXT_PUBLIC_CONVEX_URL.replace(".convex.cloud", ".convex.site");
 
 export async function POST(req) {
@@ -15,9 +17,10 @@ export async function POST(req) {
   });
   const data = await res.json();
   const origin = new URL(req.url).origin;
-  if (data.id) {
-    data.raw = `${SITE}/f/${data.id}`; // inline file bytes (Convex serves these)
-    data.viewer = `${origin}/v/${data.id}`; // dashboard viewer on this domain
+
+  if (res.ok && data.name) {
+    data.raw = `${SITE}/f/${encodeURIComponent(data.name)}`; // inline file bytes (Convex serves these)
+    data.viewer = `${origin}/v/${encodeURIComponent(data.name)}`; // dashboard viewer on this domain
     data.url = data.viewer;
 
     forwardToJarvis(data).catch((err) => console.error("Jarvis ingest failed:", err));
@@ -38,7 +41,7 @@ async function forwardToJarvis(file) {
     },
     body: JSON.stringify({
       clerkUserId: userId,
-      managementalId: file.id,
+      managementalId: file.name,
       name: file.name,
       mime: file.mime,
       size: file.size,
