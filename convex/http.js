@@ -176,8 +176,7 @@ const meta = httpAction(async (ctx, req) => {
 // Searches file names, notes, and (for text-like mime types) file contents.
 const grep = httpAction(async (ctx, req) => {
   const params = new URL(req.url).searchParams;
-  const q = params.get("q");
-  if (!q) return json({ error: "q query param is required" }, 400);
+  const q = params.get("q") || "";
   const session = params.get("session") || undefined;
   const limit = params.get("limit") ? Number(params.get("limit")) : undefined;
 
