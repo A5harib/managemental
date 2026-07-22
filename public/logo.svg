@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <!-- lamp glow -->
+  <circle cx="32" cy="20" r="16" fill="url(#glow)"/>
+  <!-- bulb -->
+  <circle cx="32" cy="20" r="9" fill="#ffcf7a"/>
+  <path d="M27 27 h10 l-2 5 h-6 z" fill="#8a6b3a"/>
+  <!-- sticky note lit from above -->
+  <rect x="14" y="34" width="36" height="26" rx="3" fill="#fff7c2"/>
+  <rect x="14" y="34" width="36" height="26" rx="3" fill="url(#notelight)"/>
+  <line x1="20" y1="45" x2="44" y2="45" stroke="#d9c56a" stroke-width="2" stroke-linecap="round"/>
+  <line x1="20" y1="51" x2="38" y2="51" stroke="#d9c56a" stroke-width="2" stroke-linecap="round"/>
+  <defs>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop stop-color="#ffcf7a" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#ffcf7a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="notelight" x1="32" y1="34" x2="32" y2="60" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ffe9a8" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+</svg>
