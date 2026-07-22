@@ -11,6 +11,30 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type, X-Session, X-Agent, X-Note, X-Filename",
 };
 
+// curl --data-binary with no explicit -H "Content-Type: ..." sends
+// application/x-www-form-urlencoded by default — that's not a real
+// description of the file, so raw-body uploads fall back to the extension
+// instead of trusting a Content-Type that's almost certainly just curl's
+// default rather than something the caller actually chose.
+const EXT_MIME = {
+  html: "text/html", htm: "text/html",
+  json: "application/json",
+  csv: "text/csv",
+  txt: "text/plain",
+  md: "text/markdown",
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif",
+  webp: "image/webp", svg: "image/svg+xml",
+  mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime",
+  pdf: "application/pdf",
+};
+const GENERIC_CONTENT_TYPES = new Set(["application/x-www-form-urlencoded", "application/octet-stream", ""]);
+
+function resolveMime(blobType, name) {
+  if (blobType && !GENERIC_CONTENT_TYPES.has(blobType)) return blobType;
+  const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
+  return EXT_MIME[ext] || blobType || "application/octet-stream";
+}
+
 // POST /upload
 // Two ways to send bytes:
 //   multipart:  curl -F file=@shot.png -F session=run-42 -F agent=claude .../upload
@@ -45,6 +69,7 @@ const upload = httpAction(async (ctx, req) => {
 
   name = String(name);
   note = String(note);
+  const mime = resolveMime(blob.type, name);
 
   const embedding = await embedTextSafe(note);
 
@@ -52,7 +77,7 @@ const upload = httpAction(async (ctx, req) => {
   const result = await ctx.runMutation(api.files.record, {
     storageId,
     name,
-    mime: blob.type || "application/octet-stream",
+    mime,
     size: blob.size,
     session: String(session),
     agent: String(agent),
@@ -76,7 +101,7 @@ const upload = httpAction(async (ctx, req) => {
     url: `${site}/f/${name}`,
     viewer: `${site}/v/${name}`,
     name,
-    mime: blob.type || "application/octet-stream",
+    mime,
     size: blob.size,
     session: String(session),
     note,
@@ -119,7 +144,7 @@ const replace = httpAction(async (ctx, req) => {
   await ctx.runMutation(api.files.replaceContent, {
     name,
     storageId,
-    mime: blob.type || existing.mime,
+    mime: resolveMime(blob.type, name) || existing.mime,
     size: blob.size,
   });
 

@@ -102,13 +102,27 @@ curl -X POST https://managemental.vercel.app/api/upload \
   -H "X-Note: <detailed paragraph>"
 ```
 
-Response:
+The uploaded filename becomes the URL slug — `screenshot.png` uploads to
+`/v/screenshot.png`. **Names must be unique across all of Managemental.** If
+you re-upload an existing name, you get back a `409`:
+
+```json
+{ "error": "duplicate_name", "message": "A file named \"screenshot.png\" already exists. Rename your file and upload it again." }
+```
+
+When that happens, rename the file (e.g. add a timestamp or session suffix)
+and re-upload — don't retry the same name. This is also why a per-run
+`session` slug is worth including in filenames for anything you might
+generate more than once (a report you regenerate, a screenshot from a
+repeated step).
+
+Success response:
 
 ```json
 {
   "id": "j57...",
-  "url": "https://managemental.vercel.app/v/j57...",
-  "raw": "https://acoustic-dodo-934.convex.site/f/j57...",
+  "url": "https://managemental.vercel.app/v/screenshot.png",
+  "raw": "https://acoustic-dodo-934.convex.site/f/screenshot.png",
   "name": "screenshot.png", "mime": "image/png", "size": 48213,
   "session": "checkout-flow-2026-07-22", "note": "..."
 }
@@ -120,17 +134,17 @@ when building a report that embeds this file.
 ### Get
 
 ```bash
-curl https://managemental.vercel.app/api/f/<id>        # raw bytes
-curl https://managemental.vercel.app/api/meta/<id>      # JSON metadata
+curl https://managemental.vercel.app/api/f/<name>        # raw bytes
+curl https://managemental.vercel.app/api/meta/<name>      # JSON metadata
 ```
 
 ### Edit a file you uploaded
 
-Same id, same URL, new bytes. Use this to correct or update a report instead
-of uploading a duplicate:
+Same name, same URL, new bytes. Use this to correct or update a report
+instead of uploading a duplicate:
 
 ```bash
-curl -X PUT https://managemental.vercel.app/api/f/<id> -F file=@updated-report.html
+curl -X PUT https://managemental.vercel.app/api/f/<name> -F file=@updated-report.html
 ```
 
 ### Search your files
@@ -179,9 +193,14 @@ one.
    don't rainbow the whole page. Pick 2-3 accent colors and stay consistent.
 6. **Every image gets a caption.** A screenshot with no label makes the
    reader guess what they're looking at and why it's there.
-7. **Self-contained.** Inline all CSS. No external fonts/CDNs — this page
-   needs to render standalone from Managemental's own `<iframe>` viewer with
-   no other network dependencies.
+7. **Use the Tailwind CDN for styling.** Add
+   `<script src="https://cdn.tailwindcss.com"></script>` in `<head>` and
+   build the report with utility classes — it's faster than hand-rolling CSS
+   and gives consistent spacing/type scale for free. It loads inside
+   Managemental's own `<iframe>` viewer, which needs network access to
+   `cdn.tailwindcss.com` — if a report ever renders blank or unstyled
+   (blocked network, CSP), fall back to inline `<style>` CSS instead so the
+   report still works standalone.
 8. **Dark or light, but committed.** Don't leave default black-on-white
    Times New Roman. Pick a palette on purpose. (If the work is
    Managemental-adjacent, its own theme — warm lamp-glow amber on dark, with
