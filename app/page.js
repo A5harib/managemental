@@ -2,10 +2,13 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useAuth, useClerk, UserButton } from "@clerk/nextjs";
 import Logo from "./Logo";
 import { fileUrl, kind, humanSize, ago } from "./lib";
 
 export default function Home() {
+  const { isSignedIn } = useAuth();
+  const { openSignIn } = useClerk();
   const [session, setSession] = useState(null); // null = all
   const files = useQuery(api.files.list, session ? { session } : {});
   const sessions = useQuery(api.files.sessions, {});
@@ -25,13 +28,31 @@ export default function Home() {
     <main className="w-full max-w-6xl mx-auto px-6 py-10">
       <header className="flex items-center gap-4 mb-2">
         <Logo size={88} />
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-semibold tracking-tight glow" style={{ color: "#ffe4b0" }}>
             Managemental
           </h1>
           <p className="text-sm" style={{ color: "#b9a98f" }}>
             Everything your agents drop, under one lamp.
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {isSignedIn ? (
+            <>
+              <span className="text-xs" style={{ color: "#a8935e" }}>
+                signed in · uploads sync to Jarvis
+              </span>
+              <UserButton />
+            </>
+          ) : (
+            <button
+              onClick={() => openSignIn()}
+              className="px-4 py-2 rounded-full text-sm font-medium transition-colors"
+              style={{ background: "#ffcf7a", color: "#2a2016" }}
+            >
+              Sign in to Jarvis
+            </button>
+          )}
         </div>
       </header>
 
