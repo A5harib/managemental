@@ -169,18 +169,20 @@ export default function VectorMap() {
                 if (!p) return null;
                 const leftPct = ((p.x + 1.15) / 2.3) * 100;
                 const topPct = ((-p.y + 1.15) / 2.3) * 100;
-                // Clamp the tooltip's own horizontal anchor near either edge
-                // instead of always centering on the point — a centered,
-                // fixed-width tooltip on a point near the left/right edge of
-                // this overflow-hidden box gets silently clipped otherwise.
+                // Clamp the tooltip's own anchor near any edge instead of
+                // always centering above the point — a fixed-size tooltip
+                // on a point near the edge of this overflow-hidden box gets
+                // silently clipped otherwise (both axes, not just X).
                 const translateX = leftPct < 20 ? "0%" : leftPct > 80 ? "-100%" : "-50%";
+                const flipBelow = topPct < 20;
+                const translateY = flipBelow ? "20%" : "-130%";
                 return (
                   <div
                     className="absolute pointer-events-none note rounded-lg px-3 py-2 text-xs w-56"
                     style={{
                       left: `${leftPct}%`,
                       top: `${topPct}%`,
-                      transform: `translate(${translateX}, -130%)`,
+                      transform: `translate(${translateX}, ${translateY})`,
                     }}
                   >
                     <div className="font-semibold truncate">{p.name}</div>
